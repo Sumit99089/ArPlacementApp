@@ -15,9 +15,6 @@ arCore = "1.50.0"
 # Camera dependencies
 camera = "1.3.1"
 
-# AR SceneView (modern AR library)
-arSceneview = "0.10.0"
-
 # Permissions
 accompanistPermissions = "0.32.0"
 
@@ -53,7 +50,6 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 
 # AR Dependencies
 ar-core = { group = "com.google.ar", name = "core", version.ref = "arCore" }
-ar-sceneview = { group = "io.github.sceneview", name = "arsceneview", version.ref = "arSceneview" }
 
 # Camera
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camera" }

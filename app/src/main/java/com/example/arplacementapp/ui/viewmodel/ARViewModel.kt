@@ -12,7 +12,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ARViewModel @Inject constructor(
-    private val drillRepository: DrillRepository // ✅ Properly inject repository
+    private val drillRepository: DrillRepository
 ) : ViewModel() {
 
     init {
@@ -24,7 +24,10 @@ class ARViewModel @Inject constructor(
 
     fun setCurrentDrill(drill: Drill) {
         Log.d("ARViewModel", "Setting current drill: ${drill.name}")
-        _uiState.value = _uiState.value.copy(currentDrill = drill)
+        _uiState.value = _uiState.value.copy(
+            currentDrill = drill,
+            instructions = "Move your device to detect horizontal surfaces"
+        )
     }
 
     fun setCurrentDrillById(drillId: Int) {
@@ -34,15 +37,67 @@ class ARViewModel @Inject constructor(
     }
 
     fun setPlaneDetected(detected: Boolean) {
-        _uiState.value = _uiState.value.copy(isPlaneDetected = detected)
+        Log.d("ARViewModel", "Plane detected: $detected")
+        _uiState.value = _uiState.value.copy(
+            isPlaneDetected = detected,
+            instructions = if (detected && !_uiState.value.isObjectPlaced) {
+                "Tap on the detected surface to place ${_uiState.value.currentDrill?.name ?: "drill"}"
+            } else _uiState.value.instructions
+        )
     }
 
     fun setObjectPlaced(placed: Boolean) {
-        _uiState.value = _uiState.value.copy(isObjectPlaced = placed)
+        Log.d("ARViewModel", "Object placed: $placed")
+        val currentState = _uiState.value
+        val newCount = if (placed && !currentState.isObjectPlaced) {
+            currentState.placedObjectsCount + 1
+        } else if (!placed) {
+            0 // Reset count when starting fresh
+        } else {
+            currentState.placedObjectsCount
+        }
+
+        _uiState.value = currentState.copy(
+            isObjectPlaced = placed,
+            placedObjectsCount = newCount,
+            instructions = when {
+                placed -> "${currentState.currentDrill?.name ?: "Drill"} placed successfully! Tap anywhere to place another."
+                currentState.isPlaneDetected -> "Tap on detected surface to place ${currentState.currentDrill?.name ?: "drill"}"
+                else -> "Move your device to detect horizontal surfaces"
+            }
+        )
     }
 
     fun updateInstructions(instructions: String) {
+        Log.d("ARViewModel", "Updating instructions: $instructions")
         _uiState.value = _uiState.value.copy(instructions = instructions)
+    }
+
+    fun resetARState() {
+        Log.d("ARViewModel", "Resetting AR state")
+        val currentDrill = _uiState.value.currentDrill
+        _uiState.value = ARUiState(
+            currentDrill = currentDrill,
+            instructions = "Move your device to detect horizontal surfaces"
+        )
+    }
+
+    fun incrementPlacedObjects() {
+        val currentState = _uiState.value
+        _uiState.value = currentState.copy(
+            placedObjectsCount = currentState.placedObjectsCount + 1,
+            isObjectPlaced = true,
+            instructions = "${currentState.currentDrill?.name ?: "Drill"} placed! Total: ${currentState.placedObjectsCount + 1}. Tap to place another."
+        )
+    }
+
+    fun getPlacementInstructions(): String {
+        val currentState = _uiState.value
+        return when {
+            !currentState.isPlaneDetected -> "Move your device to detect horizontal surfaces"
+            currentState.placedObjectsCount == 0 -> "Tap on detected surface to place your first ${currentState.currentDrill?.name ?: "drill"}"
+            else -> "Great! ${currentState.placedObjectsCount} objects placed. Tap to place another ${currentState.currentDrill?.name ?: "drill"}"
+        }
     }
 }
 
@@ -50,5 +105,8 @@ data class ARUiState(
     val currentDrill: Drill? = null,
     val isPlaneDetected: Boolean = false,
     val isObjectPlaced: Boolean = false,
-    val instructions: String = "Move your device to detect surfaces"
+    val placedObjectsCount: Int = 0,
+    val instructions: String = "Move your device to detect horizontal surfaces",
+    val isARSessionActive: Boolean = false,
+    val errorMessage: String? = null
 )

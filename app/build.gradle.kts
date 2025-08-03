@@ -83,11 +83,10 @@ dependencies {
     // Image Loading
     implementation(libs.coil.compose)
 
-    // AR Dependencies - Using ARSceneView (modern approach)
+    // ARCore dependency
     implementation(libs.ar.core)
-    implementation(libs.ar.sceneview)
 
-    // Camera
+    // Camera for AR preview
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)

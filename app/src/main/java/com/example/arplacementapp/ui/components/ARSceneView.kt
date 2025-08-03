@@ -1,8 +1,6 @@
 package com.example.arplacementapp.ui.components
 
-import android.Manifest
-import android.content.Context
-import android.hardware.camera2.CameraManager
+import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -38,29 +36,30 @@ fun ARSceneView(
     val lifecycleOwner = LocalLifecycleOwner.current
     var isObjectPlaced by remember { mutableStateOf(false) }
     var isPlaneDetected by remember { mutableStateOf(false) }
+    var placedObjects by remember { mutableStateOf<List<PlacedObject>>(emptyList()) }
 
     // Simulate plane detection after a delay
     LaunchedEffect(Unit) {
-        delay(3000) // Simulate 3 seconds to detect plane
+        delay(2000) // Simulate 2 seconds to detect plane
         isPlaneDetected = true
         onPlaneDetected(true)
+        Log.d("ARSceneView", "Simulated plane detection")
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // Camera Preview
+        // Camera Preview as background
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
                 PreviewView(ctx).apply {
                     val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
                     cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-                        val preview = Preview.Builder().build()
-                        preview.setSurfaceProvider(surfaceProvider)
-
-                        val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
                         try {
+                            val cameraProvider = cameraProviderFuture.get()
+                            val preview = Preview.Builder().build()
+                            preview.setSurfaceProvider(surfaceProvider)
+                            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
                             cameraProvider.unbindAll()
                             cameraProvider.bindToLifecycle(
                                 lifecycleOwner,
@@ -68,7 +67,7 @@ fun ARSceneView(
                                 preview
                             )
                         } catch (e: Exception) {
-                            e.printStackTrace()
+                            Log.e("ARSceneView", "Camera setup failed", e)
                         }
                     }, ContextCompat.getMainExecutor(ctx))
                 }
@@ -85,86 +84,222 @@ fun ARSceneView(
             // Status Text
             Text(
                 text = when {
-                    !isPlaneDetected -> "Move device to detect surfaces..."
-                    !isObjectPlaced -> "Tap on the screen to place ${drill?.name ?: "object"}"
-                    else -> "${drill?.name ?: "Object"} placed successfully!"
+                    !isPlaneDetected -> "Scanning for surfaces..."
+                    placedObjects.isEmpty() -> "Tap anywhere to place ${drill?.name ?: "drill"}"
+                    else -> "${drill?.name ?: "Drill"} placed! Tap to place another."
                 },
                 color = Color.White,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .background(
-                        Color.Black.copy(alpha = 0.7f),
+                        Color.Black.copy(alpha = 0.8f),
                         MaterialTheme.shapes.medium
                     )
                     .padding(12.dp)
             )
 
-            // Tap target (only show when plane is detected and object not placed)
-            if (isPlaneDetected && !isObjectPlaced) {
+            // Placement area
+            if (isPlaneDetected) {
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.8f))
+                        .fillMaxWidth()
+                        .height(200.dp)
                         .clickable {
+                            // Add new placed object (only allow one as per assignment)
+                            val newObject = PlacedObject(
+                                id = System.currentTimeMillis(),
+                                drill = drill,
+                                x = (50..250).random(),
+                                y = (50..150).random()
+                            )
+                            placedObjects = listOf(newObject) // Only one object at a time
                             isObjectPlaced = true
                             onObjectPlaced(true)
-                        }
-                        .align(Alignment.CenterHorizontally),
+                            Log.d("ARSceneView", "Object placed for drill: ${drill?.name}")
+                        },
                     contentAlignment = Alignment.Center
                 ) {
+                    // Show placed objects
+                    placedObjects.forEach { placedObject ->
+                        Box(
+                            modifier = Modifier
+                                .offset(
+                                    x = placedObject.x.dp,
+                                    y = placedObject.y.dp
+                                )
+                                .size(getDrillObjectSize(placedObject.drill))
+                                .background(
+                                    getDrillObjectColor(placedObject.drill),
+                                    getDrillObjectShape(placedObject.drill)
+                                )
+                                .clickable {
+                                    // Remove object on click
+                                    placedObjects = emptyList()
+                                    isObjectPlaced = false
+                                    onObjectPlaced(false)
+                                }
+                        )
+                    }
+
+                    // Placement indicator when no objects are placed
+                    if (placedObjects.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(100.dp)
+                                .background(
+                                    Color.White.copy(alpha = 0.3f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(getDrillObjectSize(drill))
+                                        .background(
+                                            getDrillObjectColor(drill),
+                                            getDrillObjectShape(drill)
+                                        )
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "TAP",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Control buttons
+            if (placedObjects.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Color.Black.copy(alpha = 0.6f),
+                            MaterialTheme.shapes.medium
+                        )
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            placedObjects = emptyList()
+                            isObjectPlaced = false
+                            onObjectPlaced(false)
+                        }
+                    ) {
+                        Text("Place Another")
+                    }
+
+                    Text(
+                        text = "Object Placed",
+                        color = Color.Green,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.align(Alignment.CenterVertically),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // Drill info overlay
+        if (drill != null) {
+            androidx.compose.material3.Card(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp, 80.dp, 16.dp, 16.dp)
+                    .width(140.dp),
+                colors = androidx.compose.material3.CardDefaults.cardColors(
+                    containerColor = Color.Black.copy(alpha = 0.8f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = drill.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = drill.difficulty.name,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = getDrillObjectColor(drill)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
                     Box(
                         modifier = Modifier
-                            .size(getDrillObjectSize(drill))
+                            .size(24.dp)
                             .background(
                                 getDrillObjectColor(drill),
-                                when (drill?.id) {
-                                    1 -> MaterialTheme.shapes.small // Square
-                                    2 -> MaterialTheme.shapes.medium // Rounded
-                                    3 -> CircleShape // Circle
-                                    else -> MaterialTheme.shapes.small
-                                }
+                                getDrillObjectShape(drill)
                             )
                     )
                 }
             }
+        }
 
-            // Placed object indicator
-            if (isObjectPlaced) {
-                Box(
-                    modifier = Modifier
-                        .size(60.dp)
-                        .background(
-                            getDrillObjectColor(drill),
-                            when (drill?.id) {
-                                1 -> MaterialTheme.shapes.small
-                                2 -> MaterialTheme.shapes.medium
-                                3 -> CircleShape
-                                else -> MaterialTheme.shapes.small
-                            }
-                        )
-                        .align(Alignment.CenterHorizontally)
-                )
-            }
+        // Surface detection indicator
+        if (isPlaneDetected) {
+            Text(
+                text = "Surface Detected ✓",
+                color = Color.Green,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(16.dp, 80.dp, 16.dp, 16.dp)
+                    .background(
+                        Color.Black.copy(alpha = 0.6f),
+                        MaterialTheme.shapes.small
+                    )
+                    .padding(8.dp)
+            )
         }
     }
 }
 
+data class PlacedObject(
+    val id: Long,
+    val drill: Drill?,
+    val x: Int,
+    val y: Int
+)
+
 private fun getDrillObjectColor(drill: Drill?): Color {
     return when (drill?.id) {
-        1 -> Color.Green
-        2 -> Color.Blue
-        3 -> Color.Red
-        else -> Color.Yellow
+        1 -> Color(0xFF4CAF50) // Green
+        2 -> Color(0xFF2196F3) // Blue
+        3 -> Color(0xFFF44336) // Red
+        else -> Color(0xFFFFEB3B) // Yellow
     }
 }
 
 private fun getDrillObjectSize(drill: Drill?): androidx.compose.ui.unit.Dp {
     return when (drill?.id) {
-        1 -> 30.dp
-        2 -> 25.dp
-        3 -> 35.dp
-        else -> 30.dp
+        1 -> 40.dp // Basic Positioning
+        2 -> 35.dp // Advanced Movement
+        3 -> 45.dp // Expert Technique
+        else -> 40.dp
+    }
+}
+
+private fun getDrillObjectShape(drill: Drill?): androidx.compose.foundation.shape.CornerBasedShape {
+    return when (drill?.id) {
+        1 -> androidx.compose.foundation.shape.RoundedCornerShape(4.dp) // Square for basic
+        2 -> androidx.compose.foundation.shape.RoundedCornerShape(12.dp) // Rounded for advanced
+        3 -> CircleShape // Circle for expert
+        else -> androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
     }
 }
