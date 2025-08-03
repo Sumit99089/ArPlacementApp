@@ -1,13 +1,17 @@
 package com.example.arplacementapp.data.repository
 
+import android.util.Log
 import com.example.arplacementapp.data.model.Drill
 import com.example.arplacementapp.data.model.DrillDifficulty
-import com.example.arplacementapp.R
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class DrillRepository @Inject constructor() {
+
+    init {
+        Log.d("DrillRepository", "DrillRepository created via DI")
+    }
 
     private val drills = listOf(
         Drill(
@@ -20,7 +24,7 @@ class DrillRepository @Inject constructor() {
                 "Focus on smooth, controlled movements",
                 "Practice consistently for best results"
             ),
-            imageRes = R.drawable.ic_drill_1,
+            imageRes = android.R.drawable.ic_menu_camera, // Temporary system drawable
             difficulty = DrillDifficulty.BEGINNER
         ),
         Drill(
@@ -33,7 +37,7 @@ class DrillRepository @Inject constructor() {
                 "Coordinate upper and lower body movements",
                 "Take breaks when needed"
             ),
-            imageRes = R.drawable.ic_drill_2,
+            imageRes = android.R.drawable.ic_menu_gallery, // Temporary system drawable
             difficulty = DrillDifficulty.INTERMEDIATE
         ),
         Drill(
@@ -46,12 +50,19 @@ class DrillRepository @Inject constructor() {
                 "Use visualization techniques",
                 "Track your progress carefully"
             ),
-            imageRes = R.drawable.ic_drill_3,
+            imageRes = android.R.drawable.ic_menu_info_details, // Temporary system drawable
             difficulty = DrillDifficulty.ADVANCED
         )
     )
 
-    fun getAllDrills(): List<Drill> = drills
+    fun getAllDrills(): List<Drill> {
+        Log.d("DrillRepository", "getAllDrills called, returning ${drills.size} drills")
+        return drills
+    }
 
-    fun getDrillById(id: Int): Drill? = drills.find { it.id == id }
+    fun getDrillById(id: Int): Drill? {
+        val drill = drills.find { it.id == id }
+        Log.d("DrillRepository", "getDrillById($id) returning: ${drill?.name ?: "null"}")
+        return drill
+    }
 }

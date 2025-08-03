@@ -1,6 +1,7 @@
 package com.example.arplacementapp.ui.screens
 
 import android.Manifest
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,23 +26,24 @@ import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun ARScreen(
     drillId: Int,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ARViewModel = hiltViewModel(),
-    drillRepository: DrillRepository = DrillRepository()
+    viewModel: ARViewModel = hiltViewModel() // ✅ Only inject ViewModel
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val drill = remember(drillId) { drillRepository.getDrillById(drillId) }
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
-    LaunchedEffect(drill) {
-        drill?.let { viewModel.setCurrentDrill(it) }
+    // ✅ Load drill via ViewModel (which uses injected repository)
+    LaunchedEffect(drillId) {
+        Log.d("ARScreen", "Loading drill with ID: $drillId")
+        viewModel.setCurrentDrillById(drillId)
     }
 
     if (!cameraPermissionState.status.isGranted) {
@@ -55,27 +57,27 @@ fun ARScreen(
     Box(modifier = modifier.fillMaxSize()) {
         // AR Scene View
         ARSceneView(
-            drill = drill,
+            drill = uiState.currentDrill, // ✅ Get drill from ViewModel state
             onPlaneDetected = { detected ->
                 viewModel.setPlaneDetected(detected)
                 if (detected && !uiState.isObjectPlaced) {
-                    viewModel.updateInstructions("Tap on the ground to place ${drill?.name ?: "drill"} marker")
+                    viewModel.updateInstructions("Tap on the ground to place ${uiState.currentDrill?.name ?: "drill"} marker")
                 }
             },
             onObjectPlaced = { placed ->
                 viewModel.setObjectPlaced(placed)
                 if (placed) {
-                    viewModel.updateInstructions("${drill?.name ?: "Drill"} marker placed successfully!")
+                    viewModel.updateInstructions("${uiState.currentDrill?.name ?: "Drill"} marker placed successfully!")
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Top App Bar
+        // Rest of your UI code stays the same...
         TopAppBar(
             title = {
                 Text(
-                    text = drill?.name ?: "AR Drill",
+                    text = uiState.currentDrill?.name ?: "AR Drill",
                     color = Color.White
                 )
             },

@@ -1,7 +1,9 @@
 package com.example.arplacementapp.ui.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.arplacementapp.data.model.Drill
+import com.example.arplacementapp.data.repository.DrillRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,13 +11,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 @HiltViewModel
-class ARViewModel @Inject constructor() : ViewModel() {
+class ARViewModel @Inject constructor(
+    private val drillRepository: DrillRepository // ✅ Properly inject repository
+) : ViewModel() {
+
+    init {
+        Log.d("ARViewModel", "ARViewModel created with repository: $drillRepository")
+    }
 
     private val _uiState = MutableStateFlow(ARUiState())
     val uiState: StateFlow<ARUiState> = _uiState.asStateFlow()
 
     fun setCurrentDrill(drill: Drill) {
+        Log.d("ARViewModel", "Setting current drill: ${drill.name}")
         _uiState.value = _uiState.value.copy(currentDrill = drill)
+    }
+
+    fun setCurrentDrillById(drillId: Int) {
+        Log.d("ARViewModel", "Setting current drill by ID: $drillId")
+        val drill = drillRepository.getDrillById(drillId)
+        drill?.let { setCurrentDrill(it) }
     }
 
     fun setPlaneDetected(detected: Boolean) {

@@ -18,6 +18,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.arplacementapp.data.repository.DrillRepository
 import com.example.arplacementapp.ui.viewmodel.DrillSelectionViewModel
 
@@ -28,19 +29,25 @@ fun DrillDetailScreen(
     onStartAR: (Int) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
-    drillRepository: DrillRepository = hiltViewModel<DrillSelectionViewModel>().let {
-        // Access repository through DI in real implementation
-        DrillRepository()
-    }
+    viewModel: DrillSelectionViewModel = hiltViewModel() // ✅ Use injected ViewModel
 ) {
-    val drill = remember(drillId) { drillRepository.getDrillById(drillId) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // ✅ Get drill from ViewModel's repository
+    val drill = remember(drillId, uiState.drills) {
+        uiState.drills.find { it.id == drillId }
+    }
 
     if (drill == null) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text("Drill not found")
+            if (uiState.isLoading) {
+                CircularProgressIndicator()
+            } else {
+                Text("Drill not found")
+            }
         }
         return
     }
